@@ -4,7 +4,6 @@ import * as cocossd from '@tensorflow-models/coco-ssd';
 import * as posenet from '@tensorflow-models/posenet';
 import * as tf from '@tensorflow/tfjs';
 import '@tensorflow/tfjs-backend-webgl';
-window.tf = tf;
 import swal from 'sweetalert';
 import Button from '@mui/material/Button';
 import { useNavigate } from 'react-router-dom';
@@ -16,7 +15,6 @@ function Facecamera() {
   const canvasRef = useRef(null);
   const navigate = useNavigate();
   const [referenceDescriptor, setReferenceDescriptor] = useState();
-  const [isInitialized, setIsInitialized] = useState(false);
 
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [log, setLog] = useState({
@@ -55,7 +53,7 @@ function Facecamera() {
 
   // Capture reference descriptor
   const captureReferenceFromStartPage = async () => {
-    console.log('📸 Starting reference capture...');
+    console.log(' Starting reference capture...');
     
     const imgDataUrl = localStorage.getItem('capturedImage');
     if (!imgDataUrl) {
@@ -95,10 +93,10 @@ function Facecamera() {
             console.log(' Face detected in reference image');
             
             setReferenceDescriptor(descriptorArray);
-            setIsInitialized(true);
             
-            console.log(' descriptor array:', descriptorArray);
-            console.log('Setting reference descriptor:', referenceDescriptor);
+            
+            // console.log(' descriptor array:', descriptorArray);
+            // console.log('Setting reference descriptor:', referenceDescriptor);
             return descriptorArray;
         }
 
@@ -119,16 +117,21 @@ useEffect(() => {
   const runCoco = async () => {
     const net = await cocossd.load();
     console.log('Coco SSD model loaded.');
-    const netPose = await posenet.load();
-    console.log('Posenet model loaded.');
+    // const netPose = await posenet.load();
+    // console.log('Posenet model loaded.');
 
     setInterval(() => {
-      detect(net, netPose);
+      if(!isAlertOpen){
+      detect(net);
+      }
     }, 1500);
+   
   };
 
   // Main detect loop
-  const detect = async (net, netPose) => {
+  const detect = async (net) => {
+
+    if (isAlertOpen)  return;
     const videoEl = webcamRef.current?.video;
 
     if (!videoEl || videoEl.readyState !== 4)
@@ -141,13 +144,13 @@ useEffect(() => {
     canvasRef.current.width = videoWidth;
     canvasRef.current.height = videoHeight;
 
-    // console.log("📌 referenceDescriptor:", referenceDescriptor);
+    // console.log("referenceDescriptor:", referenceDescriptor);
 
     // In the detect function, update the initialization check
-    if (referenceDescriptor && isInitialized && !isAlertOpen) {
+    if (referenceDescriptor && !isAlertOpen) {
       try {
         const faceDetection = await faceapi
-          .detectSingleFace(videoEl, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
+          .detectSingleFace(videoEl, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.6 }))
           .withFaceLandmarks()
           .withFaceDescriptor();
     
@@ -160,8 +163,8 @@ useEffect(() => {
     
           if (distance > 0.6) {
             setIsAlertOpen(true);
-            setLog(prev => ({ ...prev, faceMismatchCount: prev.faceMismatchCount + 1 }));
             swal('Face Mismatch Detected', 'Different person in front of camera!', 'error').then(() => {
+              setLog(prev => ({ ...prev, faceMismatchCount: prev.faceMismatchCount + 1 }));
               setIsAlertOpen(false);
             });
           }
@@ -181,28 +184,32 @@ useEffect(() => {
       if (!isAlertOpen && obj.length < 1) {
         alterTriggered = true;
         setIsAlertOpen(true);
-        setLog(prevLog => ({ ...prevLog, noFaceCount: prevLog.noFaceCount + 1 }));
         swal('Face Not Visible', 'Action has been Recorded', 'error').then(() => {
           setIsAlertOpen(false);
-        });
+          setLog(prevLog => ({ ...prevLog, noFaceCount: prevLog.noFaceCount + 1 }));
+        })
+        return;
       }
+      
     
       obj.forEach((element) => {
         if (!isAlertOpen && element.class === 'cell phone') {
           alterTriggered = true;
           setIsAlertOpen(true);
-          setLog(prevLog => ({ ...prevLog, cellPhoneCount: prevLog.cellPhoneCount + 1 }));
           swal('Cell Phone Detected', 'Action has been Recorded', 'error').then(() => {
             setIsAlertOpen(false);
+            setLog(prevLog => ({ ...prevLog, cellPhoneCount: prevLog.cellPhoneCount + 1 }));
           });
+          return;
         }
         if (!isAlertOpen && element.class === 'book') {
           alterTriggered = true;
           setIsAlertOpen(true);
-          setLog(prevLog => ({ ...prevLog, prohibitedObjectCount: prevLog.prohibitedObjectCount + 1 }));
           swal('Prohibited Object Detected', 'Action has been Recorded', 'error').then(() => {
             setIsAlertOpen(false);
+            setLog(prevLog => ({ ...prevLog, prohibitedObjectCount: prevLog.prohibitedObjectCount + 1 }));
           });
+          return;
         }
     
         if (element.class === 'person') {
@@ -210,11 +217,12 @@ useEffect(() => {
           if (!isAlertOpen && person_count > 1) {
             alterTriggered = true;
             setIsAlertOpen(true);
-            setLog(prevLog => ({ ...prevLog, multipleFaceCount: prevLog.multipleFaceCount + 1 }));
             swal('Multiple Faces Detected', 'Action has been Recorded', 'error').then(() => {
               setIsAlertOpen(false);
+              setLog(prevLog => ({ ...prevLog, multipleFaceCount: prevLog.multipleFaceCount + 1 }));
             });
           }
+          return;
         }
       });
     } catch (err) {
@@ -222,30 +230,32 @@ useEffect(() => {
     }
     
     // Pose detection
-    try {
-      const pose = await netPose.estimateSinglePose(videoEl, { flipHorizontal: false });
-      const leftEar = pose.keypoints.find(k => k.part === 'leftEar');
-      const rightEar = pose.keypoints.find(k => k.part === 'rightEar');
-      const minConfidence = 0.5;
+    // try {
+    //   const pose = await netPose.estimateSinglePose(videoEl, { flipHorizontal: false });
+    //   const leftEar = pose.keypoints.find(k => k.part === 'leftEar');
+    //   const rightEar = pose.keypoints.find(k => k.part === 'rightEar');
+    //   const minConfidence = 0.5;
     
-      if (!isAlertOpen && leftEar?.score < minConfidence) {
-        setIsAlertOpen(true);
-        setLog(prev => ({ ...prev, lookedAwayCount: prev.lookedAwayCount + 1 }));
-        swal('You looked away (to the left)', '', 'warning').then(() => {
-          setIsAlertOpen(false);
-        });
-      }
+    //   if (!isAlertOpen && leftEar?.score < minConfidence) {
+    //     setIsAlertOpen(true);
+    //     setLog(prev => ({ ...prev, lookedAwayCount: prev.lookedAwayCount + 1 }));
+    //     swal('You looked away (to the left)', '', 'warning').then(() => {
+    //       setIsAlertOpen(false);
+    //     });
+    //     return;
+    //   }
     
-      if (!isAlertOpen && rightEar?.score < minConfidence) {
-        setIsAlertOpen(true);
-        setLog(prev => ({ ...prev, lookedAwayCount: prev.lookedAwayCount + 1 }));
-        swal('You looked away (to the right)', '', 'warning').then(() => {
-          setIsAlertOpen(false);
-        });
-      }
-    } catch (err) {
-      console.error('posenet error:', err);
-    }
+    //   if (!isAlertOpen && rightEar?.score < minConfidence) {
+    //     setIsAlertOpen(true);
+    //     setLog(prev => ({ ...prev, lookedAwayCount: prev.lookedAwayCount + 1 }));
+    //     swal('You looked away (to the right)', '', 'warning').then(() => {
+    //       setIsAlertOpen(false);
+    //     });
+    //     return;
+    //   }
+    // } catch (err) {
+    //   console.error('posenet error:', err);
+    // }
   }    
 
   // 6) End exam handler
@@ -254,7 +264,7 @@ useEffect(() => {
     navigate('/end');
   };
 
-  // 7) useEffect bootstrap
+ 
   useEffect(() => {
     let mounted = true;
 

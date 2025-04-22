@@ -1,9 +1,10 @@
-import React from 'react'
+import React, { use } from 'react'
 import Button from '@mui/material/Button';
 import { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Webcam from 'react-webcam';
 import { useState } from 'react';
+import imageCompression from 'browser-image-compression';
 
 
 function Start() {
@@ -11,10 +12,27 @@ function Start() {
   const navigate = useNavigate();
   const [captured, setCaptured] = useState(false);
 
-  const capturePhoto = () => {
-    const imageSrc = webcamRef.current.getScreenshot();
-    localStorage.setItem('capturedImage', imageSrc);
-    setCaptured(true);
+  const capturePhoto = async () => {
+    const image = webcamRef.current.getScreenshot();
+    const options = {
+      maxSixeMB: 0.5,
+      maxWidthOrHeight: 1920,
+      useWebWorker: true,
+    }
+    try {
+      // Convert base64 to File (imageCompression needs File/Blob)
+      const response = await fetch(image);
+      const blob = await response.blob();
+      const file = new File([blob], "capturedImage.jpg", { type: "image/jpeg" });
+  
+      const compressedFile = await imageCompression(file, options);
+      const compressedBase64 = await imageCompression.getDataUrlFromFile(compressedFile);
+  
+      localStorage.setItem('capturedImage', compressedBase64);
+      setCaptured(true);
+    } catch (error) {
+      console.error("Compression failed:", error);
+    }
   };
 
   const enterFullscreen = () => {

@@ -1,8 +1,16 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 
 
 function End() {
-  const log = JSON.parse(localStorage.getItem('cheatingLog')) || {};
+
+  const [log, setLog] = useState({});
+  const[capturedImage, setCapturedImage] = useState(null);
+  useEffect(() => {
+    const logData = JSON.parse(localStorage.getItem('cheatingLog')) || {};
+    const imageData = localStorage.getItem('capturedImage');
+    setLog(logData);
+    setCapturedImage(imageData);
+  }, []);
 
   return (
     <div
@@ -20,6 +28,22 @@ function End() {
   <h2 style={{ fontSize: '28px', marginBottom: '20px', color: '#2e7d32' }}>
     Exam Completed ✅
   </h2>
+  {capturedImage && (
+        <div style={{ marginBottom: '24px' }}>
+          <h3 style={{ fontSize: '22px', marginBottom: '12px', color: '#1976d2' }}>
+            Captured Face
+          </h3>
+          <img
+            src={capturedImage}
+            alt="Captured"
+            style={{
+              width: '200px',
+              borderRadius: '12px',
+              border: '2px solid #ccc',
+            }}
+          />
+        </div>
+      )}
 
   <h3 style={{ fontSize: '22px', marginBottom: '12px', color: '#d32f2f' }}>
     Cheating Log
