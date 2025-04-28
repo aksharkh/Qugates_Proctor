@@ -1,10 +1,27 @@
+import Button from '@mui/material/Button';
 import React, { useState, useEffect } from 'react'
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 
 
 function End() {
 
   const [log, setLog] = useState({});
   const[capturedImage, setCapturedImage] = useState(null);
+
+  const downloadImage = () => {
+    if( capturedImage){
+      const base64Response = fetch(capturedImage);
+      base64Response.then(res => res.blob()).then(blob => {
+        const downloadLink = document.createElement('a');
+        downloadLink.href = URL.createObjectURL(blob);
+        downloadLink.download = 'capturedImage.jpg';
+        downloadLink.click();
+        URL.revokeObjectURL(downloadLink.href); // Clean up the URL object
+      });
+    }
+  };
+
+
   useEffect(() => {
     const logData = JSON.parse(localStorage.getItem('cheatingLog')) || {};
     const imageData = localStorage.getItem('capturedImage');
@@ -40,8 +57,19 @@ function End() {
               width: '200px',
               borderRadius: '12px',
               border: '2px solid #ccc',
+              marginBottom: '12px'
             }}
           />
+          <div>
+            <Button
+            variant='contained'
+            color='primary'
+            startIcon={<FileDownloadIcon />}
+            onClick={downloadImage}
+            style={{ marginTop: '12px' }}>
+              Download Image
+            </Button>
+          </div>
         </div>
       )}
 

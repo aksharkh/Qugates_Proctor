@@ -1,31 +1,25 @@
 import React, { useRef, useEffect, useState } from 'react';
 import Webcam from 'react-webcam';
 import * as cocossd from '@tensorflow-models/coco-ssd';
-import * as posenet from '@tensorflow-models/posenet';
 import * as tf from '@tensorflow/tfjs';
 import '@tensorflow/tfjs-backend-webgl';
 import swal from 'sweetalert';
 import Button from '@mui/material/Button';
 import { useNavigate } from 'react-router-dom';
 import * as faceapi from '@vladmandic/face-api';
-import { setRef } from '@mui/material';
+
 
 function Facecamera() {
   const webcamRef = useRef(null);
   const canvasRef = useRef(null);
   const navigate = useNavigate();
   const [referenceDescriptor, setReferenceDescriptor] = useState();
-
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [log, setLog] = useState({
     noFaceCount: 0,
     multipleFaceCount: 0,
     cellPhoneCount: 0,
     prohibitedObjectCount: 0,
-    unauthorizedKeyCount: 0,
-    fullscreenExitCount: 0,
-    tabSwitchCount: 0,
-    lookedAwayCount: 0,
     faceMismatchCount: 0,
   });
 
@@ -42,7 +36,7 @@ function Facecamera() {
         faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
         faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
         faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
-        faceapi.nets.ssdMobilenetv1.loadFromUri('/models')
+        // faceapi.nets.ssdMobilenetv1.loadFromUri('/models')
       ]);
       console.log(' face-api.js models loaded');
     } catch (error) {
@@ -84,7 +78,8 @@ function Facecamera() {
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
         const detection = await faceapi
-            .detectSingleFace(canvas, new faceapi.SsdMobilenetv1Options())
+            // .detectSingleFace(canvas, new faceapi.SsdMobilenetv1Options())
+            .detectSingleFace(canvas, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 }))
             .withFaceLandmarks()
             .withFaceDescriptor();
 
@@ -117,8 +112,7 @@ useEffect(() => {
   const runCoco = async () => {
     const net = await cocossd.load();
     console.log('Coco SSD model loaded.');
-    // const netPose = await posenet.load();
-    // console.log('Posenet model loaded.');
+    
 
     setInterval(() => {
       if(!isAlertOpen){
@@ -150,7 +144,8 @@ useEffect(() => {
     if (referenceDescriptor && !isAlertOpen) {
       try {
         const faceDetection = await faceapi
-          .detectSingleFace(videoEl, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.6 }))
+          // .detectSingleFace(videoEl, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.6 }))
+          .detectSingleFace(videoEl, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.5 }))
           .withFaceLandmarks()
           .withFaceDescriptor();
     
@@ -159,7 +154,7 @@ useEffect(() => {
             referenceDescriptor,
             Array.from(faceDetection.descriptor)
           );
-          console.log('📏 Face Match Distance:', distance);
+          console.log('Face Match Distance:', distance);
     
           if (distance > 0.6) {
             setIsAlertOpen(true);
@@ -229,33 +224,7 @@ useEffect(() => {
       console.error('coco-ssd error:', err);
     }
     
-    // Pose detection
-    // try {
-    //   const pose = await netPose.estimateSinglePose(videoEl, { flipHorizontal: false });
-    //   const leftEar = pose.keypoints.find(k => k.part === 'leftEar');
-    //   const rightEar = pose.keypoints.find(k => k.part === 'rightEar');
-    //   const minConfidence = 0.5;
     
-    //   if (!isAlertOpen && leftEar?.score < minConfidence) {
-    //     setIsAlertOpen(true);
-    //     setLog(prev => ({ ...prev, lookedAwayCount: prev.lookedAwayCount + 1 }));
-    //     swal('You looked away (to the left)', '', 'warning').then(() => {
-    //       setIsAlertOpen(false);
-    //     });
-    //     return;
-    //   }
-    
-    //   if (!isAlertOpen && rightEar?.score < minConfidence) {
-    //     setIsAlertOpen(true);
-    //     setLog(prev => ({ ...prev, lookedAwayCount: prev.lookedAwayCount + 1 }));
-    //     swal('You looked away (to the right)', '', 'warning').then(() => {
-    //       setIsAlertOpen(false);
-    //     });
-    //     return;
-    //   }
-    // } catch (err) {
-    //   console.error('posenet error:', err);
-    // }
   }    
 
   // 6) End exam handler
@@ -272,7 +241,7 @@ useEffect(() => {
         try {
             await initTf();
             await loadFaceModels();
-            const descriptor = await captureReferenceFromStartPage();
+            await captureReferenceFromStartPage();
         } catch (error) {
             console.error('Initialization error:', error);
         }
@@ -280,33 +249,7 @@ useEffect(() => {
 
     initialize();
 
-    const handleFullscreenChange = () => {
-      if (!document.fullscreenElement) {
-        setLog((prev) => ({ ...prev, fullscreenExitCount: prev.fullscreenExitCount + 1 }));
-        swal('Fullscreen Exit Detected', 'Action has been Recorded', 'error');
-      }
-    };
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        setLog((prev) => ({ ...prev, tabSwitchCount: prev.tabSwitchCount + 1 }));
-        swal('Tab Switch Detected', 'Action is being recorded', 'warning');
-      }
-    };
-    const handleKeyDown = (e) => {
-      if (e.ctrlKey || e.altKey) {
-        setLog((prev) => ({ ...prev, unauthorizedKeyCount: prev.unauthorizedKeyCount + 1 }));
-        swal('Unauthorized Key Detected', 'Ctrl / Alt', 'warning');
-      }
-    };
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('keydown', handleKeyDown);
-    };
+    
   }, []);
 
   return (

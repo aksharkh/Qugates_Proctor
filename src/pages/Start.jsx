@@ -1,9 +1,11 @@
-import React, { use } from 'react'
+import React from 'react'
+import { useRef, useState, Suspense, lazy } from 'react';
+
 import Button from '@mui/material/Button';
-import { useRef } from 'react';
+
 import { useNavigate } from 'react-router-dom';
 import Webcam from 'react-webcam';
-import { useState } from 'react';
+
 import imageCompression from 'browser-image-compression';
 
 
@@ -11,11 +13,12 @@ function Start() {
   const webcamRef = useRef(null);
   const navigate = useNavigate();
   const [captured, setCaptured] = useState(false);
-
+  
+  const Webcam = lazy(() => import('react-webcam'));
   const capturePhoto = async () => {
     const image = webcamRef.current.getScreenshot();
     const options = {
-      maxSixeMB: 0.5,
+      maxSizeMB: 0.5,
       maxWidthOrHeight: 1920,
       useWebWorker: true,
     }
@@ -34,22 +37,7 @@ function Start() {
       console.error("Compression failed:", error);
     }
   };
-
-  const enterFullscreen = () => {
-    const elem = document.documentElement;
-    if (elem.requestFullscreen) {
-      elem.requestFullscreen();
-    } else if (elem.mozRequestFullScreen) {
-      elem.mozRequestFullScreen();
-    } else if (elem.webkitRequestFullscreen) {
-      elem.webkitRequestFullscreen();
-    } else if (elem.msRequestFullscreen) {
-      elem.msRequestFullscreen();
-    }
-  };
-
   const startExam = () => {
-    enterFullscreen();
     navigate('/exam');
   };
 
@@ -73,6 +61,7 @@ function Start() {
       textAlign: 'center',
     }}
   >
+    <Suspense fallback={<div>Loading camera...</div>}>
     <Webcam
       ref={webcamRef}
       screenshotFormat="image/jpeg"
@@ -80,6 +69,7 @@ function Start() {
       height={480}
       style={{ borderRadius: '12px', marginBottom: '20px' }}
     />
+    </Suspense>
     {!captured ? (
       <Button
         variant="contained"
