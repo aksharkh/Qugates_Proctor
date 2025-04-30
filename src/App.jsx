@@ -22,11 +22,11 @@ function App() {
           🌀 Loading...
         </div>
       }>
-        <Routes>
-          <Route path="/" element={<Start />} />
-          <Route path="/exam" element={<Facecamera />} />
-          <Route path="/end" element={<End />} />
-        </Routes>
+      <Routes>
+        <Route path="/" element={<Start />} />
+        <Route path="/exam" element={<Facecamera />} />
+        <Route path="/end" element={<End />} />
+      </Routes>
       </Suspense>
     </Router>
   );
